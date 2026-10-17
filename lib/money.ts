@@ -1,7 +1,7 @@
 export type Debt={id:string;direction:'owe'|'lent';name:string;amount:number;date:string;payments:{id:string;amount:number;date:string}[]};
 export type Pocket=string;
 export type Fund={id:string;name:string;color:string;percent:number;motto:string};
-export type Entry={id:string;kind:'income'|'expense'|'borrow'|'repay'|'transfer'|'external';amount:number;note:string;date:string;pocket:Pocket;savingPercent:number;source?:string;sourceMode?:'total'|'fund';allocations?:Record<string,number>;rates?:Record<string,number>};
+export type Entry={id:string;kind:'income'|'expense'|'borrow'|'repay'|'transfer'|'external';amount:number;note:string;date:string;pocket:Pocket;savingPercent:number;debtId?:string;source?:string;sourceMode?:'total'|'fund';allocations?:Record<string,number>;rates?:Record<string,number>};
 export type Check={id:string;date:string;actual:Record<Pocket,number>;expected:Record<Pocket,number>};
 export type State={opening:Record<Pocket,number>;openingDebt:number;savingPercent:number;initialized:boolean;entries:Entry[];checks:Check[];pocketNames?:Record<Pocket,string>;funds?:Fund[];theme?:string;debts?:Debt[];savingsGoal?:number;displayName?:string;imports?:string[]};
 export const defaultNames:Record<Pocket,string>={sad:'صدقة',save:'الادخار',spend:'المصاريف'};
@@ -29,9 +29,15 @@ export function validState(s:State):boolean{
  if(s.pocketNames!==undefined&&Object.values(s.pocketNames).some(n=>typeof n!=='string'||!n.trim()||n.length>30))return false;
  if(s.theme!==undefined&&!['ink','cream','navy','white','forest','tomato','slate','dark','midnight'].includes(s.theme))return false;
  const ids=new Set();for(const e of s.entries){if(!e||typeof e.id!=='string'||ids.has(e.id)||!['income','expense','borrow','repay','transfer','external'].includes(e.kind)||!integer(e.amount)||e.amount===0||typeof e.note!=='string'||e.note.length>150||!date(e.date)||!keys.includes(e.pocket)||!Number.isInteger(e.savingPercent)||e.savingPercent<0||e.savingPercent>100)return false;if(e.kind==='transfer'&&(!e.source||!keys.includes(e.source)||e.source===e.pocket))return false;if(e.kind==='external'&&e.pocket!=='sad')return false;if(e.sourceMode!==undefined&&!['total','fund'].includes(e.sourceMode))return false;if(e.sourceMode==='total'&&(e.kind!=='transfer'||e.source!=='spend'))return false;ids.add(e.id);if(e.allocations&&(e.kind!=='income'||Object.keys(e.allocations).some(k=>!keys.includes(k)||!integer(e.allocations![k]))||Object.values(e.allocations).reduce((a,b)=>a+b,0)!==e.amount))return false;if(e.rates&&(!e.allocations||Object.keys(e.rates).some(k=>!keys.includes(k)||!Number.isInteger(e.rates![k])||e.rates![k]<0||e.rates![k]>100)||Object.values(e.rates).reduce((a,b)=>a+b,0)!==100))return false;}
+ if(!validDebtLinks(s))return false;
  return s.checks.every(c=>c&&typeof c.id==='string'&&date(c.date)&&c.actual&&c.expected&&Object.entries(c.actual).every(([p,n])=>keys.includes(p)&&integer(n))&&Object.entries(c.expected).every(([p,n])=>keys.includes(p)&&Number.isSafeInteger(n)));
 }
 export const kindLabels:Record<Entry['kind'],string>={income:'دخل',expense:'مصروف',borrow:'سحب ادخار',repay:'رد ادخار',transfer:'تحويل داخلي',external:'صدقة خارجية'};
-export function entryCategory(e:Entry,names:Record<string,string>){return e.kind==='income'?'توزيع على الصناديق':e.kind==='transfer'?`${e.sourceMode==='total'?'المتاح للمصاريف':names[e.source!]||e.source} إلى ${names[e.pocket]}`:e.kind==='external'?'صدقات خارج أموالي':e.kind==='borrow'?`${names.save} إلى ${names.spend}`:e.kind==='repay'?`${names.spend} إلى ${names.save}`:names[e.pocket];}
+export function entryCategory(e:Entry,names:Record<string,string>){return e.debtId?'سداد دين · '+names[e.pocket]:e.kind==='income'?'توزيع على الصناديق':e.kind==='transfer'?`${e.sourceMode==='total'?'المتاح للمصاريف':names[e.source!]||e.source} إلى ${names[e.pocket]}`:e.kind==='external'?'صدقات خارج أموالي':e.kind==='borrow'?`${names.save} إلى ${names.spend}`:e.kind==='repay'?`${names.spend} إلى ${names.save}`:names[e.pocket];}
 
-export function debtRemaining(d:Debt){return d.amount-d.payments.reduce((n,p)=>n+p.amount,0);}
+export function debtRemaining(d:Debt,entries:Entry[]=[]){return d.amount-d.payments.reduce((n,p)=>n+p.amount,0)-entries.filter(e=>e.debtId===d.id).reduce((n,e)=>n+e.amount,0);}
+// Linked repayments are wallet entries, never duplicated in legacy payments.
+export function validDebtLinks(s:State){
+ for(const e of s.entries){if(e?.debtId!==undefined){const d=s.debts?.find(d=>d.id===e.debtId);if(typeof e.debtId!=='string'||!d||d.direction!=='owe'||e.kind!=='expense')return false;}}
+ return (s.debts??[]).every(d=>debtRemaining(d,s.entries)>=0);
+}

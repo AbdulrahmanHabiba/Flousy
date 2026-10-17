@@ -1,4 +1,4 @@
-import {balances,fundsOf,entryImpact,type State,type Entry} from './money';
+import {balances,fundsOf,entryImpact,validDebtLinks,type State,type Entry} from './money';
 export function entryPlan(state:State,entry:Entry,editingId?:string,coverFrom?:string){
  const entries=state.entries.filter(e=>e.id!==editingId),base={...state,entries},at=balances({...base,entries:entries.filter(e=>e.date<=entry.date)});
  const debit=entry.kind==='expense'?entry.pocket:entry.kind==='transfer'?entry.source:null;
@@ -9,6 +9,7 @@ export function entryPlan(state:State,entry:Entry,editingId?:string,coverFrom?:s
  const transfer:Entry={id:crypto.randomUUID(),kind:'transfer',pocket:entry.pocket,source:coverFrom,sourceMode:'fund',amount:deficit,date:entry.date,note:'تغطية عجز '+(fundsOf(state).find(f=>f.id===entry.pocket)?.name??''),savingPercent:state.savingPercent};entries.push(transfer);
  }
  entries.push(entry);const next={...state,entries,initialized:true};
+ if(!validDebtLinks(next))return {ok:false as const,deficit:0,choices:[],debit:entry.pocket,error:'راجع الدين ومبلغ السداد؛ المبلغ أكبر من المتبقي أو الدين غير متاح.'};
  const violation=budgetViolation(state,next);if(violation)return {ok:false as const,deficit:violation.deficit,choices:[],debit:violation.fund};
  return {ok:true as const,state:next};
 }

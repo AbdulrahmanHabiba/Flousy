@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {emptyState,balances,debtRemaining,validState,incomeSplit,type State,type Entry} from '../lib/money';
+import {entryPlan,safeRemoval} from '../lib/entry-plan';
+import {mergeGuest} from '../lib/guest';
+import {periodReport} from '../lib/period-report';
+const state:State={...emptyState,initialized:true,debts:[{id:'debt',name:'دين تجريبي',direction:'owe',amount:300000,date:'2026-10-01',payments:[]}],entries:[{id:'income',kind:'income',amount:400000,date:'2026-10-01',note:'دخل',pocket:'spend',savingPercent:30,...incomeSplit(400000,emptyState)}]};
+const payment:Entry={id:'payment',kind:'expense',debtId:'debt',amount:100000,pocket:'save',date:'2026-10-17',note:'قسط أكتوبر',savingPercent:30};
+const paid=entryPlan(state,payment);assert(paid.ok);if(!paid.ok)throw Error('payment failed');
+assert(validState(paid.state));assert.equal(balances(paid.state).save,20000);assert.equal(balances(paid.state).total,300000);assert.equal(debtRemaining(paid.state.debts![0],paid.state.entries),200000);
+const edited=entryPlan(paid.state,{...payment,amount:50000},payment.id);assert(edited.ok);if(!edited.ok)throw Error('edit failed');assert.equal(balances(edited.state).save,70000);assert.equal(debtRemaining(edited.state.debts![0],edited.state.entries),250000);
+const removed=safeRemoval(paid.state,payment.id);assert(removed);assert.equal(balances(removed).save,120000);assert.equal(debtRemaining(removed.debts![0],removed.entries),300000);
+assert(!entryPlan(state,{...payment,amount:300001},undefined,'spend').ok);
+assert(!validState({...paid.state,debts:[]}));assert(!validState({...paid.state,entries:[...state.entries,{...payment,kind:'income'}]}));
+const legacy={...state,debts:[{...state.debts![0],payments:[{id:'old',date:'2026-10-02',amount:20000}]}]};const mixed=entryPlan(legacy,payment);assert(mixed.ok);if(!mixed.ok)throw Error('legacy failed');assert.equal(debtRemaining(mixed.state.debts![0],mixed.state.entries),180000);assert.equal(balances(mixed.state).total,300000);
+assert.equal(periodReport(paid.state,'month','2026-10').spent,100000);assert.deepEqual(JSON.parse(JSON.stringify(paid.state)),paid.state);assert(validState(mergeGuest(emptyState,paid.state)));
+const coverage=entryPlan(state,{...payment,pocket:'sad'},undefined,'spend');assert(coverage.ok);if(!coverage.ok)throw Error('coverage failed');assert.equal(balances(coverage.state).sad,0);assert.equal(balances(coverage.state).total,300000);assert.equal(debtRemaining(coverage.state.debts![0],coverage.state.entries),200000);
+console.log('PASS: linked repayment, edit/delete, principal limit, orphan rejection, legacy preservation, import, coverage and report single counting.');
