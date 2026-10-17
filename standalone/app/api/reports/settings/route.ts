@@ -1,0 +1,5 @@
+import {authContext,identity,sameOrigin,readBody,unavailable} from '../../../../lib/supabase';
+import {reportDefaults,validSettings} from '../../../../../lib/reports/settings';
+export const dynamic='force-dynamic';
+export async function GET(){try{const c=await authContext(),user=await identity(c);if(!user)return c.json({error:'سجّل الدخول أولًا.'},401);const {data,error}=await c.supabase.from('flousy_report_settings').select('payload').eq('user_id',user.id).maybeSingle();if(error)throw error;return c.json({settings:data?.payload??reportDefaults,senderReady:false,scheduleConnected:false});}catch{return unavailable();}}
+export async function POST(request:Request){try{const c=await authContext();if(!sameOrigin(request))return c.json({error:'طلب غير مسموح.'},403);const user=await identity(c);if(!user)return c.json({error:'سجّل الدخول أولًا.'},401);const settings=await readBody(request);if(!validSettings(settings))return c.json({error:'راجع البريد ووقت التقرير.'},400);const {error}=await c.supabase.from('flousy_report_settings').upsert({user_id:user.id,payload:settings});if(error)throw error;return c.json({saved:true});}catch{return unavailable();}}

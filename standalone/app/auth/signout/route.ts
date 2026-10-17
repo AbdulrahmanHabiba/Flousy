@@ -1,0 +1,2 @@
+import {authContext,sameOrigin,unavailable} from '../../../lib/supabase';
+export async function POST(request:Request){try{const c=await authContext();if(!sameOrigin(request))return c.json({error:'طلب غير مسموح.'},403);const {error}=await c.supabase.auth.signOut({scope:'local'});if(error)return c.json({error:'لم يتم تأكيد الخروج. حاول مرة أخرى.'},503);return c.json({signedOut:true});}catch{return unavailable();}}

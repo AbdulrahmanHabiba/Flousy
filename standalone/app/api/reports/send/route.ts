@@ -1,0 +1,2 @@
+import {authContext,identity,sameOrigin,unavailable} from '../../../../lib/supabase';
+export async function POST(request:Request){try{const c=await authContext();if(!sameOrigin(request))return c.json({error:'طلب غير مسموح.'},403);if(!await identity(c))return c.json({error:'سجّل الدخول أولًا.'},401);return c.json({error:'خدمة إرسال التقارير لم تتصل في النسخة المستقلة بعد. المعاينة والتحميل متاحان.'},503);}catch{return unavailable();}}

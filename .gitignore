@@ -47,3 +47,8 @@ next-env.d.ts
 
 # Generated TypeScript incremental cache
 *.tsbuildinfo
+/standalone/.next/
+/standalone/public/
+/standalone/next-env.d.ts
+!**/.env.example
+**/node_modules/
