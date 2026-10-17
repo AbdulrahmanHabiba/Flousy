@@ -1,0 +1,6 @@
+import {getChatGPTUser} from '../../chatgpt-auth';
+import {readWallet,deliveryConfig} from '../../../lib/reports/server';
+import {dailyReport,cairoDate,validDate,emailHtml} from '../../../lib/reports/model';
+import {fontBase64} from '../../../lib/reports/font';
+import {reportPdf} from '../../../lib/reports/pdf';
+export async function GET(req:Request){const u=await getChatGPTUser();if(!u)return new Response('Unauthorized',{status:401});const url=new URL(req.url),date=url.searchParams.get('date')||cairoDate();if(!validDate(date))return new Response('Invalid date',{status:400});try{const r=dailyReport(await readWallet(u.userId),date);if(url.searchParams.get('format')==='pdf'){const bytes=reportPdf(r,fontBase64);return new Response(bytes as BodyInit,{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="Folousy-${date}.pdf"`,'Cache-Control':'no-store'}});}return new Response(emailHtml(r,deliveryConfig().origin),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'"}});}catch{return Response.json({error:'تعذر إعداد التقرير. حاول مرة أخرى.'},{status:503});}}

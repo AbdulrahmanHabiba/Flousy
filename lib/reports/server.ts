@@ -1,0 +1,8 @@
+import { env } from 'cloudflare:workers';
+import {database} from '../../db/raw';
+import {emptyState,type State} from '../money';
+import {reportDefaults,type ReportSettings} from './settings';
+export async function reportStore(){const db=database();await db.prepare('CREATE TABLE IF NOT EXISTS report_settings (user_id TEXT PRIMARY KEY,payload TEXT NOT NULL)').run();await db.prepare('CREATE TABLE IF NOT EXISTS report_deliveries (delivery_key TEXT PRIMARY KEY,user_id TEXT NOT NULL,status TEXT NOT NULL,provider_id TEXT,created_at TEXT NOT NULL,payload TEXT NOT NULL)').run();return db;}
+export async function readReportSettings(userId:string){const db=await reportStore(),row=await db.prepare('SELECT payload FROM report_settings WHERE user_id=?').bind(userId).first<{payload:string}>();return row?JSON.parse(row.payload) as ReportSettings:reportDefaults;}
+export async function readWallet(userId:string){const row=await database().prepare('SELECT payload FROM wallet_state WHERE user_id=?').bind(userId).first<{payload:string}>();return row?JSON.parse(row.payload) as State:emptyState;}
+export function deliveryConfig(){const e=env as unknown as Record<string,string|undefined>;const provider=e.REPORTS_PROVIDER==='gmail'?'gmail':'resend',gmail={clientId:e.GMAIL_CLIENT_ID,clientSecret:e.GMAIL_CLIENT_SECRET,refreshToken:e.GMAIL_REFRESH_TOKEN};return {provider,gmail,ready:provider==='gmail'?!!(gmail.clientId&&gmail.clientSecret&&gmail.refreshToken&&e.REPORTS_FROM):!!(e.RESEND_API_KEY&&e.REPORTS_FROM),key:e.RESEND_API_KEY,from:e.REPORTS_FROM,origin:e.REPORTS_SITE_ORIGIN||'https://habiba-ledger.poetichen1.chatgpt.site',scheduleConnected:e.REPORTS_SCHEDULE_CONNECTED==='true'};}

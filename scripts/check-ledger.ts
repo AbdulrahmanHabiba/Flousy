@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {emptyState,validState,balances,monthSummary,incomeSplit,entryCategory,kindLabels,type State,type Entry} from '../lib/money';
+import {dailyReport,emailHtml} from '../lib/reports/model';
+import {reportPdf} from '../lib/reports/pdf';
+import {fontBase64} from '../lib/reports/font';
+import {saveGuest,readGuest,mergeGuest,guestKey} from '../lib/guest';
+import fs from 'node:fs';
+const income:Entry={id:'income',kind:'income',amount:100000,date:'2026-10-08',note:'بيانات تجريبية',pocket:'spend',savingPercent:30,...incomeSplit(100000,emptyState)};
+const transfer:Entry={id:'transfer',kind:'transfer',amount:20000,date:'2026-10-08',note:'زيادة ادخار يدوي',pocket:'save',source:'spend',sourceMode:'total',savingPercent:30};
+const charity:Entry={id:'charity',kind:'transfer',amount:5000,date:'2026-10-08',note:'زيادة الصدقة من الادخار',pocket:'sad',source:'save',sourceMode:'fund',savingPercent:30};
+const external:Entry={id:'external',kind:'external',amount:7000,date:'2026-10-08',note:'صدقة من خارج أموالي',pocket:'sad',savingPercent:30};
+const expense:Entry={id:'expense',kind:'expense',amount:15000,date:'2026-10-08',note:'خرج مبلغ الصدقة بالكامل',pocket:'sad',savingPercent:30};
+const state:State={...emptyState,initialized:true,entries:[income,transfer,charity,external,expense]};
+assert(validState(state));assert.deepEqual(balances(state),{sad:0,save:45000,spend:40000,debt:0,total:85000});
+const month=monthSummary(state,'2026-10');assert.equal(month.incoming.sad,15000);assert.equal(month.external,7000);assert.equal(month.income,100000);assert.equal(month.outgoing.sad,15000);
+const november=monthSummary(state,'2026-11');assert.equal(november.start.total,85000);assert.equal(november.incoming.sad,0);assert.equal(november.external,0);
+assert.equal(balances({...state,entries:[income,transfer,charity,external]}).total,100000);
+assert(!validState({...state,entries:[{...transfer,source:'save'}]}));assert(!validState({...state,entries:[{...external,pocket:'save'}]}));assert(!validState({...state,entries:[{...transfer,source:'unknown'}]}));
+const report=dailyReport(state,'2026-10-08');assert.equal(report.spent,15000);assert.equal(report.external,7000);assert.equal(report.closing.sad,0);assert(emailHtml(report,'https://example.com').includes('صدقة خارجية'));
+assert.equal(kindLabels.transfer,'تحويل داخلي');assert(entryCategory(charity,{save:'الادخار',sad:'صدقة'}).includes('الادخار إلى صدقة'));
+const memory=new Map<string,string>();Object.assign(globalThis,{localStorage:{getItem:(key:string)=>memory.get(key)??null,setItem:(key:string,v:string)=>{memory.set(key,v);}}});
+assert.equal(readGuest().revision,0);assert.equal(saveGuest(state,0),1);assert.equal(readGuest().state.entries.length,5);assert.throws(()=>saveGuest(state,0));memory.set(guestKey,'bad');assert.throws(()=>readGuest());assert.equal(memory.get(guestKey),'bad');memory.clear();
+const merged=mergeGuest({...emptyState,initialized:true,entries:[income]},state);assert.equal(merged.entries.length,5);assert(validState(merged));assert.equal(mergeGuest(emptyState,state).entries.length,5);
+const out=process.argv[2];if(out){fs.mkdirSync(out,{recursive:true});fs.writeFileSync(out+'/Folousy_Daily_Sample.pdf',reportPdf(report,fontBase64));fs.writeFileSync(out+'/Folousy_Email_Preview.html',emailHtml(report,'https://habiba-ledger.poetichen1.chatgpt.site'));}
+console.log('PASS: transfers conserve total, monthly basis survives payout, external charity isolated, month carryover, invalid sources, report classifications, guest CAS/corruption/import.');
