@@ -41,4 +41,4 @@ Uploaded171 files to main, preserving initial repository commit. Application imp
 
 8. Continuation prompt
 Read AGENTS.md, README and this handoff before editing. Preserve vertical mobile notebook UX, integer amounts, historical allocations, transfers, carryover, no-overdraft policy and local-first queue. Back up user data and verify exact amounts before any D1-to-Supabase cutover. Do not confuse a connected management plugin with app OAuth. Keep private history private. Update this technical handoff with real changes, checks and honest pending work.
-Repository About description remains pending an authenticated metadata-edit path. Secure browser sign-in was declined; do not retry unless requested. Code and Arabic README upload is complete.
+Repository About description was saved and visibly verified on2026-10-17 after the owner completed browser sign-in. The Arabic description covers charity/savings/expenses, configurable funds, quick ledger and A4; it accurately calls Supabase ready for integration, not already migrated. Code, Arabic README and repository description are complete. Direct app Google login/Supabase persistence remain separate pending work.
